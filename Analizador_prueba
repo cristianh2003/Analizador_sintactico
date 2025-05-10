@@ -1,0 +1,174 @@
+class AnalizadorSimplificadoCPP:
+    def __init__(self, tokens):
+        self.tokens = tokens  # Lista de tokens del analizador léxico
+        self.indice_token_actual = 0
+        self.token_actual = tokens[0] if tokens else None
+
+    def avanzar(self):
+        """Avanzar al siguiente token."""
+        self.indice_token_actual += 1
+        if self.indice_token_actual < len(self.tokens):
+            self.token_actual = self.tokens[self.indice_token_actual]
+        else:
+            self.token_actual = None
+
+    def esperar(self, tipo_token, valor_token=None):
+        """Esperar un tipo de token específico (y opcionalmente un valor)."""
+        if self.token_actual and self.token_actual[0] == tipo_token:
+            if valor_token is None or self.token_actual[1] == valor_token:
+                self.avanzar()
+            else:
+                self.error(f"Se esperaba '{valor_token}', pero se encontró '{self.token_actual[1]}'")
+        else:
+            esperado = f"{tipo_token}" + (f" '{valor_token}'" if valor_token else "")
+            encontrado = f"'{self.token_actual[1]}'" if self.token_actual else "EOF"
+            self.error(f"Se esperaba {esperado}, pero se encontró {encontrado}")
+
+    def error(self, mensaje):
+        """Imprimir mensaje de error y lanzar excepción."""
+        linea = self.token_actual[2] if self.token_actual else "desconocida"
+        print(f"Error de sintaxis en la línea {linea}: {mensaje}")
+        raise SyntaxError(mensaje)
+
+    def analizar_programa(self):
+        """Analizar todo el programa."""
+        while self.token_actual:
+            self.analizar_sentencia()
+
+    def analizar_sentencia(self):
+        """Analizar una sentencia."""
+        if self.token_actual[0] == "PALABRA CLAVE":
+            if self.token_actual[1] in {"int", "float", "char", "void"}:
+                self.analizar_declaracion()
+            elif self.token_actual[1] == "if":
+                self.analizar_sentencia_control()
+            elif self.token_actual[1] == "while":
+                self.analizar_bucle_while()
+            elif self.token_actual[1] == "for":
+                self.analizar_bucle_for()
+            elif self.token_actual[1] == "return":
+                self.analizar_sentencia_retorno()
+            elif self.token_actual[1] == "using":
+                self.analizar_uso_espacio_nombres()
+            else:
+                self.error(f"Palabra clave inesperada '{self.token_actual[1]}'")
+        elif self.token_actual[0] == "IDENTIFICADOR":
+            self.analizar_expresion()
+            self.esperar("DELIMITADOR", ";")
+        elif self.token_actual[0] == "DELIMITADOR" and self.token_actual[1] == "{":
+            self.analizar_bloque()
+        else:
+            self.error("Token inesperado")
+
+    def analizar_declaracion(self):
+        """Analizar una declaración de variable."""
+        self.esperar("PALABRA CLAVE")  # Tipo (int, float, etc.)
+        self.esperar("IDENTIFICADOR")  # Nombre de la variable
+        if self.token_actual and self.token_actual[0] == "OPERADOR" and self.token_actual[1] == "=":
+            self.avanzar()  # '='
+            self.analizar_expresion()
+        self.esperar("DELIMITADOR", ";")
+
+    def analizar_expresion(self):
+        """Analizar una expresión."""
+        self.analizar_valor()
+        if self.token_actual and self.token_actual[0] == "OPERADOR":
+            self.avanzar()  # Operador
+            self.analizar_valor()
+
+    def analizar_valor(self):
+        """Analizar un valor (identificador, número o cadena)."""
+        if self.token_actual[0] in {"IDENTIFICADOR", "NUMERO", "CADENA"}:
+            self.avanzar()
+        else:
+            self.error("Se esperaba un valor (identificador, número o cadena)")
+
+    def analizar_sentencia_control(self):
+        """Analizar una sentencia de control if-else."""
+        self.esperar("PALABRA CLAVE", "if")
+        self.esperar("DELIMITADOR", "(")
+        self.analizar_expresion()
+        self.esperar("DELIMITADOR", ")")
+        self.analizar_bloque()
+        if self.token_actual and self.token_actual[0] == "PALABRA CLAVE" and self.token_actual[1] == "else":
+            self.avanzar()
+            self.analizar_bloque()
+
+    def analizar_bucle_while(self):
+        """Analizar un bucle while."""
+        self.esperar("PALABRA CLAVE", "while")
+        self.esperar("DELIMITADOR", "(")
+        self.analizar_expresion()
+        self.esperar("DELIMITADOR", ")")
+        self.analizar_bloque()
+
+    def analizar_bucle_for(self):
+        """Analizar un bucle for."""
+        self.esperar("PALABRA CLAVE", "for")
+        self.esperar("DELIMITADOR", "(")
+        self.analizar_declaracion()
+        self.analizar_expresion()
+        self.esperar("DELIMITADOR", ";")
+        self.analizar_expresion()
+        self.esperar("DELIMITADOR", ")")
+        self.analizar_bloque()
+
+    def analizar_bloque(self):
+        """Analizar un bloque de código encerrado en llaves."""
+        self.esperar("DELIMITADOR", "{")
+        while self.token_actual and self.token_actual[1] != "}":
+            self.analizar_sentencia()
+        self.esperar("DELIMITADOR", "}")
+
+    def analizar_sentencia_retorno(self):
+        """Analizar una sentencia de retorno."""
+        self.esperar("PALABRA CLAVE", "return")
+        self.analizar_valor()
+        self.esperar("DELIMITADOR", ";")
+
+    def analizar_uso_espacio_nombres(self):
+        """Analizar una sentencia de uso de espacio de nombres."""
+        self.esperar("PALABRA CLAVE", "using")
+        self.esperar("PALABRA CLAVE", "namespace")
+        self.esperar("IDENTIFICADOR")
+        self.esperar("DELIMITADOR", ";")
+
+
+# Ejemplo de uso:
+if __name__ == "__main__":
+    # Ejemplo de lista de tokens del analizador léxico
+    tokens = [
+        ("PALABRA CLAVE", "int", 5),
+        ("IDENTIFICADOR", "main", 5),
+        ("DELIMITADOR", "(", 5),
+        ("DELIMITADOR", ")", 5),
+        ("DELIMITADOR", "{", 5),
+        ("PALABRA CLAVE", "int", 6),
+        ("IDENTIFICADOR", "a", 6),
+        ("OPERADOR", "=", 6),
+        ("NUMERO", "5", 6),
+        ("DELIMITADOR", ";", 6),
+        ("PALABRA CLAVE", "if", 7),
+        ("DELIMITADOR", "(", 7),
+        ("IDENTIFICADOR", "a", 7),
+        ("OPERADOR", ">", 7),
+        ("NUMERO", "0", 7),
+        ("DELIMITADOR", ")", 7),
+        ("DELIMITADOR", "{", 7),
+        ("IDENTIFICADOR", "cout", 8),
+        ("OPERADOR", "<<", 8),
+        ("CADENA", "\"Positivo\"", 8),
+        ("DELIMITADOR", ";", 8),
+        ("DELIMITADOR", "}", 9),
+        ("PALABRA CLAVE", "return", 10),
+        ("NUMERO", "0", 10),
+        ("DELIMITADOR", ";", 10),
+        ("DELIMITADOR", "}", 11),
+    ]
+
+    analizador = AnalizadorSimplificadoCPP(tokens)
+    try:
+        analizador.analizar_programa()
+        print("¡Análisis completado con éxito!")
+    except SyntaxError as e:
+        print("¡El análisis falló!")

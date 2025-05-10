@@ -1,0 +1,11 @@
+body {
+    font-family: Arial, sans-serif;
+}
+
+h1, h2 {
+    color: #343a40;
+}
+
+.animate__animated {
+    --animate-duration: 1.2s;
+}
